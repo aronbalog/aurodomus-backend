@@ -4,9 +4,11 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  const port = process.env.PORT ?? 3001;
-  
-  await app.listen(port, '0.0.0.0'); // <-- ensure 0.0.0.0
-  console.log(`🚀 Backend server is running on: http://0.0.0.0:${port}`);
+  const port = 3000; // DO NOT use 3001 inside container
+
+  await app.listen(port, '0.0.0.0');
+
+  console.log(`🚀 Backend server listening on 0.0.0.0:${port}`);
 }
+
 bootstrap();
