@@ -162,6 +162,98 @@ export class ScraperService implements OnModuleInit {
   }
 
   /**
+   * Scrape a single vendor and cache result
+   */
+  async scrapeSingleVendor(vendorName: string): Promise<ScraperResult> {
+    // Find the parser for this vendor
+    const parser = this.parsers.find(p => p.getVendorName() === vendorName);
+    
+    if (!parser) {
+      this.logger.error(`Parser not found for vendor: ${vendorName}`);
+      return {
+        vendor: vendorName,
+        success: false,
+        error: `Vendor not found: ${vendorName}`,
+      };
+    }
+
+    this.logger.log(`Starting scraping ${vendorName}...`);
+
+    // Initialize progress for this vendor
+    this.scrapingProgress.set(vendorName, {
+      vendor: vendorName,
+      status: 'scraping',
+      progress: 0,
+    });
+
+    try {
+      // Scrape with progress callback
+      const data = await parser.scrape((progress: number) => {
+        this.scrapingProgress.set(vendorName, {
+          vendor: vendorName,
+          status: 'scraping',
+          progress,
+        });
+      });
+
+      if (data.error) {
+        this.logger.error(`Error scraping ${data.vendor}: ${data.error}`);
+        this.scrapingProgress.set(vendorName, {
+          vendor: vendorName,
+          status: 'error',
+          progress: 100,
+          error: data.error,
+        });
+        return {
+          vendor: data.vendor,
+          success: false,
+          error: data.error,
+        };
+      } else {
+        // Update cache with new data
+        this.cachedPrices.set(data.vendor, data);
+        this.scrapingProgress.set(vendorName, {
+          vendor: vendorName,
+          status: 'completed',
+          progress: 100,
+        });
+        this.logger.log(`Successfully scraped ${data.vendor}: ${data.prices.length} prices found`);
+        
+        // Clear progress after delay
+        setTimeout(() => {
+          this.scrapingProgress.delete(vendorName);
+        }, 3000);
+        
+        return {
+          vendor: data.vendor,
+          success: true,
+          data,
+        };
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to scrape ${vendorName}: ${errorMessage}`);
+      this.scrapingProgress.set(vendorName, {
+        vendor: vendorName,
+        status: 'error',
+        progress: 100,
+        error: errorMessage,
+      });
+      
+      // Clear progress after delay
+      setTimeout(() => {
+        this.scrapingProgress.delete(vendorName);
+      }, 3000);
+      
+      return {
+        vendor: vendorName,
+        success: false,
+        error: errorMessage,
+      };
+    }
+  }
+
+  /**
    * Get current cached prices
    */
   getCurrentPrices(): VendorPriceData[] {

@@ -1,4 +1,4 @@
-import { Controller, Get, Post } from '@nestjs/common';
+import { Controller, Get, Post, Param } from '@nestjs/common';
 import { AppService } from './app.service';
 import { ScraperService, ScrapingProgress } from './scraper/scraper.service';
 import { VendorPriceData, ScraperResult } from './scraper/interfaces/price.interface';
@@ -29,6 +29,13 @@ export class AppController {
       console.error('Scraping error:', error);
     });
     return this.scraperService.getCurrentPrices();
+  }
+
+  @Post('api/prices/refresh/:vendor')
+  async refreshSingleVendor(@Param('vendor') vendor: string): Promise<ScraperResult> {
+    // Scrape single vendor (await to return result)
+    const result = await this.scraperService.scrapeSingleVendor(vendor);
+    return result;
   }
 
   @Get('api/prices/progress')

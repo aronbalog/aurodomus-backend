@@ -87,7 +87,8 @@ export abstract class BaseParser {
    * Parse price string and extract number
    * Handles both formats:
    * - European: 128.104,70 € (dots = thousands, comma = decimal)
-   * - American: 128,104.70 € (comma = thousands, dot = decimal)
+   * - American: 128,104.70 € (comma = thousands, dot is decimal)
+   * - Simple: 146.50 € or 146,50 €
    */
   protected parsePrice(priceText: string): number | null {
     if (!priceText) return null;
@@ -95,28 +96,73 @@ export abstract class BaseParser {
     // Remove currency symbols and spaces
     let cleaned = priceText.replace(/[€$£¥\s]/gi, '').trim();
     
+    // Remove any non-numeric characters except dots, commas, and minus
+    cleaned = cleaned.replace(/[^\d.,-]/g, '');
+    
     // Determine format by checking which separator appears last (that's the decimal)
     const lastDotIndex = cleaned.lastIndexOf('.');
     const lastCommaIndex = cleaned.lastIndexOf(',');
     
+    // Count dots and commas to determine format
+    const dotCount = (cleaned.match(/\./g) || []).length;
+    const commaCount = (cleaned.match(/,/g) || []).length;
+    
     if (lastDotIndex > lastCommaIndex) {
-      // American format: 128,104.70 - comma is thousands, dot is decimal
-      cleaned = cleaned.replace(/,/g, ''); // Remove thousands separators
+      // Dot appears after comma (or no comma)
+      if (dotCount === 1 && commaCount === 0) {
+        // Simple format like 146.50 - dot is decimal
+        // Keep as is
+      } else if (dotCount > 1 && commaCount === 0) {
+        // Multiple dots like 128.104.70 - European thousands separator, last dot is decimal
+        const parts = cleaned.split('.');
+        cleaned = parts.slice(0, -1).join('') + '.' + parts[parts.length - 1];
+      } else {
+        // American format: 128,104.70 - comma is thousands, dot is decimal
+        cleaned = cleaned.replace(/,/g, ''); // Remove thousands separators
+      }
     } else if (lastCommaIndex > lastDotIndex) {
-      // European format: 128.104,70 - dots are thousands, comma is decimal
-      cleaned = cleaned.replace(/\./g, ''); // Remove thousands separators (dots)
-      cleaned = cleaned.replace(',', '.'); // Replace comma with dot for decimal
+      // Comma appears after dot (or no dot)
+      if (commaCount === 1 && dotCount === 0) {
+        // Simple format like 146,50 - comma is decimal (European)
+        cleaned = cleaned.replace(',', '.');
+      } else if (commaCount > 1 && dotCount === 0) {
+        // Multiple commas like 128,104,70 - American thousands separator, last comma is decimal
+        const parts = cleaned.split(',');
+        cleaned = parts.slice(0, -1).join('') + '.' + parts[parts.length - 1];
+      } else {
+        // European format: 128.104,70 - dots are thousands, comma is decimal
+        cleaned = cleaned.replace(/\./g, ''); // Remove thousands separators (dots)
+        cleaned = cleaned.replace(',', '.'); // Replace comma with dot for decimal
+      }
     } else if (cleaned.includes(',')) {
-      // Only comma, treat as decimal
-      cleaned = cleaned.replace(/\./g, ''); // Remove any dots first
+      // Only comma, treat as decimal (European)
       cleaned = cleaned.replace(',', '.');
-    } else {
-      // Only dots or no separators, remove all dots (they might be thousands)
-      cleaned = cleaned.replace(/\./g, '');
+    } else if (cleaned.includes('.')) {
+      // Only dot - could be decimal or thousands
+      // If there's only one dot and 2 digits after it, treat as decimal
+      // Otherwise, check position
+      if (dotCount === 1) {
+        const parts = cleaned.split('.');
+        if (parts.length === 2 && parts[1].length <= 2) {
+          // Looks like decimal (e.g., 146.50)
+          // Keep as is
+        } else if (parts[1].length === 3 && parts[0].length > 3) {
+          // Looks like thousands (e.g., 1.000)
+          cleaned = cleaned.replace('.', '');
+        }
+        // Otherwise keep as is (assume decimal)
+      }
     }
     
     // Remove any remaining non-numeric characters except decimal point
     cleaned = cleaned.replace(/[^\d.]/g, '');
+    
+    // Ensure only one decimal point
+    const parts = cleaned.split('.');
+    if (parts.length > 2) {
+      // Multiple decimal points - keep only the last one as decimal
+      cleaned = parts.slice(0, -1).join('') + '.' + parts[parts.length - 1];
+    }
     
     const price = parseFloat(cleaned);
     return isNaN(price) || price <= 0 ? null : price;

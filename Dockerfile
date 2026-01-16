@@ -26,7 +26,7 @@ RUN npm install --only=production
 COPY --from=builder /app/dist ./dist
 
 # Expose Nest.js default port
-EXPOSE 3000
+EXPOSE 3001
 
 # Start the app
 CMD ["node", "dist/main"]

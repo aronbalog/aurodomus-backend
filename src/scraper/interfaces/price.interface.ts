@@ -3,6 +3,8 @@ export interface PriceEntry {
   buyPrice?: number;
   sellPrice?: number;
   price?: number; // if single price (not buy/sell)
+  regularPrice?: number; // Regular/original price (before discount)
+  discountedPrice?: number; // Discounted/sale price (current price)
   productTitle?: string; // Product name/title
   productLink?: string; // Link to product page
 }
