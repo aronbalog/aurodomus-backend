@@ -15,7 +15,7 @@ async function bootstrap() {
     credentials: true,
   });
 
-  await app.listen(port);
+  await app.listen(port, '0.0.0.0'); // <-- ensure 0.0.0.0
   console.log(`🚀 Backend server is running on: http://localhost:${port}`);
   console.log(`📡 CORS enabled for: ${frontendUrl}`);
 }
